@@ -144,6 +144,8 @@ export class OpenClawApp extends LitElement {
 
   @state() nodesLoading = false;
   @state() nodes: Array<Record<string, unknown>> = [];
+  @state() dashboardMessagesByAgent: AppViewState["dashboardMessagesByAgent"] = {};
+  @state() dashboardSendingByAgent: AppViewState["dashboardSendingByAgent"] = {};
   @state() devicesLoading = false;
   @state() devicesError: string | null = null;
   @state() devicesList: DevicePairingList | null = null;

@@ -66,6 +66,8 @@ export type AppViewState = {
   chatQueue: ChatQueueItem[];
   nodesLoading: boolean;
   nodes: Array<Record<string, unknown>>;
+  dashboardMessagesByAgent: Record<string, Array<{ id: string; role: "user" | "assistant" | "system" | "tool"; content: string; timestamp?: number; toolName?: string }>>;
+  dashboardSendingByAgent: Record<string, boolean>;
   chatNewMessagesBelow: boolean;
   sidebarOpen: boolean;
   sidebarContent: string | null;

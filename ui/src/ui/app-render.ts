@@ -77,6 +77,7 @@ import { renderOverview } from "./views/overview.ts";
 import { renderSessions } from "./views/sessions.ts";
 import { renderSkills } from "./views/skills.ts";
 import { renderUsage } from "./views/usage.ts";
+import { renderDashboard } from "./views/dashboard.ts";
 
 const AVATAR_DATA_RE = /^data:/i;
 const AVATAR_HTTP_RE = /^https?:\/\//i;
@@ -1046,6 +1047,143 @@ export function renderApp(state: AppViewState) {
                       ? { kind: "node" as const, nodeId: state.execApprovalsTargetNodeId }
                       : { kind: "gateway" as const };
                   return saveExecApprovals(state, target);
+                },
+              })
+            : nothing
+        }
+
+        ${
+          state.tab === "dashboard"
+            ? renderDashboard({
+                connected: state.connected,
+                sessions: (state.sessionsResult?.sessions ?? []).map((s) => ({
+                  key: s.key,
+                  agentId: s.agentId,
+                  kind: s.kind,
+                  channel: s.channel,
+                  state: s.state,
+                  lastActivity: s.lastMessageAt,
+                })),
+                agents: [],
+                messagesByAgent: state.dashboardMessagesByAgent ?? {},
+                sendingByAgent: state.dashboardSendingByAgent ?? {},
+                onLoadMessages: (agentId: string) => {
+                  // Find the session for this agent
+                  const sessions = state.sessionsResult?.sessions ?? [];
+                  const session = sessions.find((s) => {
+                    const sid = s.agentId || s.key.split(":")[1];
+                    return sid === agentId;
+                  });
+                  if (!session || !state.client) return;
+                  state.client.request("sessions.history", {
+                    sessionKey: session.key,
+                    limit: 50,
+                    includeTools: true,
+                  }).then((result: unknown) => {
+                    const res = result as { messages?: Array<{ role: string; content: string; timestamp?: number; toolName?: string }> };
+                    const msgs = (res.messages ?? []).map((m, i) => ({
+                      id: `msg-${i}`,
+                      role: m.role as "user" | "assistant" | "system" | "tool",
+                      content: typeof m.content === "string" ? m.content : JSON.stringify(m.content),
+                      timestamp: m.timestamp,
+                      toolName: m.toolName,
+                    }));
+                    state.dashboardMessagesByAgent = { ...state.dashboardMessagesByAgent, [agentId]: msgs };
+                  }).catch(() => {
+                    state.dashboardMessagesByAgent = { ...state.dashboardMessagesByAgent, [agentId]: [] };
+                  });
+                },
+                onSendMessage: (agentId: string, message: string) => {
+                  const sessions = state.sessionsResult?.sessions ?? [];
+                  const session = sessions.find((s) => {
+                    const sid = s.agentId || s.key.split(":")[1];
+                    return sid === agentId;
+                  });
+                  if (!session || !state.client) return;
+
+                  state.dashboardSendingByAgent = { ...state.dashboardSendingByAgent, [agentId]: true };
+                  const existing = state.dashboardMessagesByAgent[agentId] ?? [];
+                  state.dashboardMessagesByAgent = {
+                    ...state.dashboardMessagesByAgent,
+                    [agentId]: [...existing, { id: `user-${Date.now()}`, role: "user" as const, content: message, timestamp: Date.now() }],
+                  };
+
+                  state.client.request("sessions.send", {
+                    sessionKey: session.key,
+                    message,
+                  }).then(() => {
+                    state.dashboardSendingByAgent = { ...state.dashboardSendingByAgent, [agentId]: false };
+                    setTimeout(() => {
+                      if (state.client) {
+                        state.client.request("sessions.history", {
+                          sessionKey: session.key,
+                          limit: 50,
+                          includeTools: true,
+                        }).then((result: unknown) => {
+                          const res = result as { messages?: Array<{ role: string; content: string; timestamp?: number; toolName?: string }> };
+                          const msgs = (res.messages ?? []).map((m, i) => ({
+                            id: `msg-${i}`,
+                            role: m.role as "user" | "assistant" | "system" | "tool",
+                            content: typeof m.content === "string" ? m.content : JSON.stringify(m.content),
+                            timestamp: m.timestamp,
+                            toolName: m.toolName,
+                          }));
+                          state.dashboardMessagesByAgent = { ...state.dashboardMessagesByAgent, [agentId]: msgs };
+                        });
+                      }
+                    }, 2000);
+                  }).catch(() => {
+                    state.dashboardSendingByAgent = { ...state.dashboardSendingByAgent, [agentId]: false };
+                  });
+                },
+                onRefreshAgent: (agentId: string) => {
+                  const sessions = state.sessionsResult?.sessions ?? [];
+                  const session = sessions.find((s) => {
+                    const sid = s.agentId || s.key.split(":")[1];
+                    return sid === agentId;
+                  });
+                  if (!session || !state.client) return;
+
+                  state.client.request("sessions.history", {
+                    sessionKey: session.key,
+                    limit: 50,
+                    includeTools: true,
+                  }).then((result: unknown) => {
+                    const res = result as { messages?: Array<{ role: string; content: string; timestamp?: number; toolName?: string }> };
+                    const msgs = (res.messages ?? []).map((m, i) => ({
+                      id: `msg-${i}`,
+                      role: m.role as "user" | "assistant" | "system" | "tool",
+                      content: typeof m.content === "string" ? m.content : JSON.stringify(m.content),
+                      timestamp: m.timestamp,
+                      toolName: m.toolName,
+                    }));
+                    state.dashboardMessagesByAgent = { ...state.dashboardMessagesByAgent, [agentId]: msgs };
+                  });
+                },
+                onRefresh: () => {
+                  void loadSessions(state);
+                  // Load messages for all agents with active sessions
+                  const sessions = state.sessionsResult?.sessions ?? [];
+                  for (const s of sessions) {
+                    const agentId = s.agentId || s.key.split(":")[1];
+                    if (agentId && state.client) {
+                      state.client.request("sessions.history", {
+                        sessionKey: s.key,
+                        limit: 50,
+                        includeTools: true,
+                      }).then((result: unknown) => {
+                        const res = result as { messages?: Array<{ role: string; content: string; timestamp?: number; toolName?: string }> };
+                        const msgs = (res.messages ?? []).map((m, i) => ({
+                          id: `msg-${i}`,
+                          role: m.role as "user" | "assistant" | "system" | "tool",
+                          content: typeof m.content === "string" ? m.content : JSON.stringify(m.content),
+                          timestamp: m.timestamp,
+                          toolName: m.toolName,
+                        }));
+                        state.dashboardMessagesByAgent = { ...state.dashboardMessagesByAgent, [agentId]: msgs };
+                      }).catch(() => {});
+                    }
+                  }
                 },
               })
             : nothing
