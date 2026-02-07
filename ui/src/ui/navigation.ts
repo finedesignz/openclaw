@@ -6,7 +6,7 @@ export const TAB_GROUPS = [
     label: "Control",
     tabs: ["overview", "channels", "instances", "sessions", "usage", "cron"],
   },
-  { label: "Agent", tabs: ["agents", "skills", "nodes", "dashboard"] },
+  { label: "Agent", tabs: ["agents", "skills", "nodes", "team"] },
   { label: "Settings", tabs: ["config", "debug", "logs"] },
 ] as const;
 
@@ -20,7 +20,7 @@ export type Tab =
   | "cron"
   | "skills"
   | "nodes"
-  | "dashboard"
+  | "team"
   | "chat"
   | "config"
   | "debug"
@@ -36,7 +36,7 @@ const TAB_PATHS: Record<Tab, string> = {
   cron: "/cron",
   skills: "/skills",
   nodes: "/nodes",
-  dashboard: "/dashboard",
+  team: "/team",
   chat: "/chat",
   config: "/config",
   debug: "/debug",
@@ -146,7 +146,7 @@ export function iconForTab(tab: Tab): IconName {
       return "zap";
     case "nodes":
       return "monitor";
-    case "dashboard":
+    case "team":
       return "layoutDashboard";
     case "config":
       return "settings";
@@ -179,8 +179,8 @@ export function titleForTab(tab: Tab) {
       return "Skills";
     case "nodes":
       return "Nodes";
-    case "dashboard":
-      return "Dashboard";
+    case "team":
+      return "Team";
     case "chat":
       return "Chat";
     case "config":
@@ -214,7 +214,7 @@ export function subtitleForTab(tab: Tab) {
       return "Manage skill availability and API key injection.";
     case "nodes":
       return "Paired devices, capabilities, and command exposure.";
-    case "dashboard":
+    case "team":
       return "Monitor all agents, tasks, and activity in real-time.";
     case "chat":
       return "Direct gateway chat session for quick interventions.";

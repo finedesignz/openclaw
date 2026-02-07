@@ -1053,7 +1053,7 @@ export function renderApp(state: AppViewState) {
         }
 
         ${
-          state.tab === "dashboard"
+          state.tab === "team"
             ? renderDashboard({
                 connected: state.connected,
                 sessions: (state.sessionsResult?.sessions ?? []).map((s) => ({
